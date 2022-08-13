@@ -1,67 +1,79 @@
-
-import nltk
-import pyspark
+from textblob import TextBlob
+from bs4 import BeautifulSoup
+import requests
 import re
 
-#Use first time to download key packages
-"""nltk.download('punkt')
-nltk.download('averaged_perceptron_tagger')
-nltk.download('maxent_ne_chunker')
-nltk.download('words')"""
+import spacy
+from spacy import displacy
+from collections import Counter
+nlp = spacy.load("en_core_web_sm")
 
-#JAVA_HOME = /usr/lib/jvm/java-8-openjdk-amd64
-from nltk import ne_chunk, pos_tag, word_tokenize
-from nltk.tree import Tree
-
+import pyspark
 sc = pyspark.SparkContext()
 
 #Array of file names
 files = [
-    "data/data/abc_news_86680728811.csv",
-    "data/data/fox_news_15704546335.csv",
-    "data/data/bbc_228735667216.csv",
-    "data/data/nbc_news_155869377766434.csv",
-    "data/data/cbs_news_131459315949.csv",
-    "data/data/npr_10643211755.csv",
-    "data/data/cnn_5550296508.csv",
-    "data/data/the_los_angeles_times_5863113009.csv"
+    ("ABC News", "data/data/abc_news_86680728811.csv"),
+    ("Fox News", "data/data/fox_news_15704546335.csv"),
+    ("BBC", "data/data/bbc_228735667216.csv"),
+    ("NBC News", "data/data/nbc_news_155869377766434.csv"),
+    ("CBS News", "data/data/cbs_news_131459315949.csv"),
+    ("NPR", "data/data/npr_10643211755.csv"),
+    ("CNN", "data/data/cnn_5550296508.csv"),
+    ("LA Time", "data/data/the_los_angeles_times_5863113009.csv")
 ]
 
-#Read the data file into an RDD (starting with one for now)
-datafile = sc.textFile('data/data/abc_news_86680728811.csv')
-print("Rows in the csv: ", datafile.count())
+files2 = [
+    ("ABC News", "data/data/abc_news_86680728811.csv"),
+    ("Fox News", "data/data/fox_news_15704546335.csv")
+]
 
-#Split each line by , to extract field values¶
-values = datafile.map(lambda x: x.split(','))
-columns = values.take(1)
-print("Columns: ", columns)
+results_array = []
 
-#Filter RDD where rows contain a NULL value
-values = values.filter(lambda row: 'NULL' not in row)
-print(values.take(1))
+def find_entities(string):
+    doc = nlp(string)
+    array = [(X.text, X.label_) for X in doc.ents]
+    result = filter(lambda x: x[1]=="PERSON", array)
+    return list(result)
 
-#Find the named entities and split into an array
-#Source: https://stackoverflow.com/questions/31836058/nltk-named-entity-recognition-to-a-python-list
-def get_continuous_chunks(text):
-    chunked = ne_chunk(pos_tag(word_tokenize(text)))
-    continuous_chunk = []
-    current_chunk = []
-    for i in chunked:
-            if type(i) == Tree:
-                    current_chunk.append(" ".join([token for token, pos in i.leaves()]))
-            if current_chunk:
-                    named_entity = " ".join(current_chunk)
-                    if named_entity not in continuous_chunk:
-                            continuous_chunk.append(named_entity)
-                            current_chunk = []
-            else:
-                    continue
-    return continuous_chunk
+def find_sentiment(string):
+    testimonial = TextBlob(string)
+    return (testimonial.sentiment.polarity, testimonial.sentiment.subjectivity) 
 
-#Clean up the RDD to have the id, caption, likes, and comments
-values = values.map(lambda x: (x[0].replace('"\ufeff""', '').replace('"""',''), (x[3], x[4], x[8], x[9], x[10])))
-print("Updated RDD ", values.take(2))
+def main_function(url):
+    #Read the data file into an RDD (starting with one for now)
+    datafile = sc.textFile(url[1])
 
-#Apply named entity recognition to RDD
-values = values.map(lambda x: (x[0], (x[1][0], x[1][1], x[1][2], x[1][3], x[1][4], get_continuous_chunks(x[1][1]))))
-print("Values with ER: ", values.take(8))
+    #Split each line by , to extract field values¶
+    values = datafile.map(lambda x: x.split(','))
+
+    #Filter out RDD rows where row contain a NULL value
+    values = values.filter(lambda row: 'NULL' not in row)
+
+    #Clean up the RDD to have the id, caption, likes, and comments
+    values = values.map(lambda x: (x[0].replace('"\ufeff""', '').replace('"""',''), (x[3], x[4], x[8], x[9], x[10], x[17])))
+
+    #Apply entity recognition via find_entities(string) function
+    values = values.map(lambda x: (x[0], (x[1][0], x[1][1], x[1][2], x[1][3], x[1][4], find_entities(x[1][0]+x[1][1]), find_sentiment(x[1][0]+x[1][1]))))
+    print("SENTIMENT ", values.take(5))
+
+    all_people = values.flatMap(lambda x: ((j[0], 1) for j in x[1][5]))
+    people_count = all_people.reduceByKey(lambda a, b: a + b)
+    top_people = people_count.top(200, lambda x : x[1])
+    results_array.append((url[0], top_people[:30]))
+
+for i in files2:
+    main_function(i)
+
+print(results_array)
+
+"""
+NOTE: RDD is structured as follows...
+    [(ID,  (Message, 
+            Description, 
+            Likes, 
+            Comments, 
+            Shares, 
+            [ER Count Array]))
+    ]
+"""

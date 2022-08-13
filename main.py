@@ -1,103 +1,79 @@
-# Import Spark NLP
-from sparknlp.base import *
-from sparknlp.annotator import *
-from sparknlp.pretrained import PretrainedPipeline
-import sparknlp
-from pyspark.sql import SparkSession
-from pyspark.ml import Pipeline# Start Spark Session with Spark NLP
-spark = sparknlp.start()
-spark = SparkSession.builder\
-    .appName("BBC Text Categorization")\
-    .config("spark.driver.memory","8G")\
-    .config("spark.memory.offHeap.enabled",True)\
-    .config("spark.memory.offHeap.size","8G") \
-    .config("spark.driver.maxResultSize", "2G") \
-    .config("spark.jars.packages", "com.johnsnowlabs.nlp:spark-nlp_2.11:2.4.5")\
-    .config("spark.kryoserializer.buffer.max", "1000M")\
-    .config("spark.network.timeout","3600s")\
-    .getOrCreate()
+from textblob import TextBlob
+from bs4 import BeautifulSoup
+import requests
+import re
 
-# File location and type
-file_location = r'data/bbc-text.csv'
-file_type = "csv"# CSV options
-infer_schema = "true"
-first_row_is_header = "true"
-delimiter = ","
-df = spark.read.format(file_type) \
-  .option("inferSchema", infer_schema) \
-  .option("header", first_row_is_header) \
-  .option("sep", delimiter) \
-  .load(file_location)
-  
-df.count()
+import spacy
+from spacy import displacy
+from collections import Counter
+nlp = spacy.load("en_core_web_sm")
 
-(trainingData, testData) = df.randomSplit([0.7, 0.3], seed = 100)
+import pyspark
+sc = pyspark.SparkContext()
 
-from pyspark.ml.feature import HashingTF, IDF, StringIndexer, SQLTransformer,IndexToString
-from pyspark.ml.classification import LogisticRegression
-from pyspark.ml.evaluation import MulticlassClassificationEvaluator# convert text column to spark nlp document
-document_assembler = DocumentAssembler() \
-    .setInputCol("text") \
-    .setOutputCol("document")# convert document to array of tokens
-tokenizer = Tokenizer() \
-  .setInputCols(["document"]) \
-  .setOutputCol("token")
- 
-# clean tokens 
-normalizer = Normalizer() \
-    .setInputCols(["token"]) \
-    .setOutputCol("normalized")# remove stopwords
-stopwords_cleaner = StopWordsCleaner()\
-      .setInputCols("normalized")\
-      .setOutputCol("cleanTokens")\
-      .setCaseSensitive(False)# stems tokens to bring it to root form
-stemmer = Stemmer() \
-    .setInputCols(["cleanTokens"]) \
-    .setOutputCol("stem")# Convert custom document structure to array of tokens.
-finisher = Finisher() \
-    .setInputCols(["stem"]) \
-    .setOutputCols(["token_features"]) \
-    .setOutputAsArray(True) \
-    .setCleanAnnotations(False)# To generate Term Frequency
-hashingTF = HashingTF(inputCol="token_features", outputCol="rawFeatures", numFeatures=1000)# To generate Inverse Document Frequency
-idf = IDF(inputCol="rawFeatures", outputCol="features", minDocFreq=5)# convert labels (string) to integers. Easy to process compared to string.
-label_stringIdx = StringIndexer(inputCol = "category", outputCol = "label")# define a simple Multinomial logistic regression model. Try different combination of hyperparameters and see what suits your data. You can also try different algorithms and compare the scores.
-lr = LogisticRegression(maxIter=10, regParam=0.3, elasticNetParam=0.0)# To convert index(integer) to corresponding class labels
-label_to_stringIdx = IndexToString(inputCol="label", outputCol="article_class")# define the nlp pipeline
-nlp_pipeline = Pipeline(
-    stages=[document_assembler, 
-            tokenizer,
-            normalizer,
-            stopwords_cleaner, 
-            stemmer, 
-            finisher,
-            hashingTF,
-            idf,
-            label_stringIdx,
-            lr,
-            label_to_stringIdx])
+#Array of file names
+files = [
+    ("ABC News", "data/data/abc_news_86680728811.csv"),
+    ("Fox News", "data/data/fox_news_15704546335.csv"),
+    ("BBC", "data/data/bbc_228735667216.csv"),
+    ("NBC News", "data/data/nbc_news_155869377766434.csv"),
+    ("CBS News", "data/data/cbs_news_131459315949.csv"),
+    ("NPR", "data/data/npr_10643211755.csv"),
+    ("CNN", "data/data/cnn_5550296508.csv"),
+    ("LA Time", "data/data/the_los_angeles_times_5863113009.csv")
+]
 
-# fit the pipeline on training data
-pipeline_model = nlp_pipeline.fit(trainingData)
+files2 = [
+    ("ABC News", "data/data/abc_news_86680728811.csv"),
+    ("Fox News", "data/data/fox_news_15704546335.csv")
+]
 
-# perform predictions on test data
-predictions =  pipeline_model.transform(testData)
+results_array = []
 
-# import evaluator
-from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-evaluator = MulticlassClassificationEvaluator(labelCol="label", predictionCol="prediction", metricName="accuracy")
-accuracy = evaluator.evaluate(predictions)
-print("Accuracy = %g" % (accuracy))
-print("Test Error = %g " % (1.0 - accuracy))
+def find_entities(string):
+    doc = nlp(string)
+    array = [(X.text, X.label_) for X in doc.ents]
+    result = filter(lambda x: x[1]=="PERSON", array)
+    return list(result)
 
-evaluator = MulticlassClassificationEvaluator(labelCol="label", predictionCol="prediction", metricName="weightedPrecision")
-accuracy = evaluator.evaluate(predictions)
-print("Accuracy = %g" % (accuracy))
-print("Test Error = %g " % (1.0 - accuracy))
+def find_sentiment(string):
+    testimonial = TextBlob(string)
+    return (testimonial.sentiment.polarity, testimonial.sentiment.subjectivity) 
 
-evaluator = MulticlassClassificationEvaluator(labelCol="label", predictionCol="prediction", metricName="weightedRecall")
-accuracy = evaluator.evaluate(predictions)
-print("Accuracy = %g" % (accuracy))
-print("Test Error = %g " % (1.0 - accuracy))
+def main_function(url):
+    #Read the data file into an RDD (starting with one for now)
+    datafile = sc.textFile(url[1])
 
-pipeline_model.save('/model')
+    #Split each line by , to extract field values¶
+    values = datafile.map(lambda x: x.split(','))
+
+    #Filter out RDD rows where row contain a NULL value
+    values = values.filter(lambda row: 'NULL' not in row)
+
+    #Clean up the RDD to have the id, caption, likes, and comments
+    values = values.map(lambda x: (x[0].replace('"\ufeff""', '').replace('"""',''), (x[3], x[4], x[8], x[9], x[10], x[17])))
+
+    #Apply entity recognition via find_entities(string) function
+    values = values.map(lambda x: (x[0], (x[1][0], x[1][1], x[1][2], x[1][3], x[1][4], find_entities(x[1][0]+x[1][1]), find_sentiment(x[1][0]+x[1][1]))))
+    print("SENTIMENT ", values.take(5))
+
+    all_people = values.flatMap(lambda x: ((j[0], 1) for j in x[1][5]))
+    people_count = all_people.reduceByKey(lambda a, b: a + b)
+    top_people = people_count.top(200, lambda x : x[1])
+    results_array.append((url[0], top_people[:30]))
+
+for i in files2:
+    main_function(i)
+
+print(results_array)
+
+"""
+NOTE: RDD is structured as follows...
+    [(ID,  (Message, 
+            Description, 
+            Likes, 
+            Comments, 
+            Shares, 
+            [ER Count Array]))
+    ]
+"""
