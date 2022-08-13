@@ -74,9 +74,9 @@ def main_function(url):
     for i in top_people:
         for j in top_polarity:
             if j[0] == i[0]:
-                temp_array.append((i[0], j[1]/i[1]))
+                temp_array.append((i[0], i[1], j[1]/i[1]))
     
-    polarity_array.append((url[0], temp_array))
+    av_polarity_array.append((url[0], temp_array))
 
 for i in files2:
     main_function(i)
