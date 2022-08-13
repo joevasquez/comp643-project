@@ -1,6 +1,6 @@
-"Evaluating Bias in News Outlets' Social Media Posts"
-
 COMP 643: Final Project
+
+"Evaluating Bias in News Outlets' Social Media Posts"
 ------------
 
 It’s no secret that news outlets leverage social media and content to 
