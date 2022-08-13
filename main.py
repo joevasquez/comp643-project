@@ -1,3 +1,4 @@
+from enrich_rdd import url_to_string
 from textblob import TextBlob
 from bs4 import BeautifulSoup
 import requests
@@ -84,6 +85,8 @@ for i in files2:
 #print(results_array)
 #print(polarity_array)
 print(av_polarity_array)
+
+print("TEST: ", ny_bb = url_to_string('https://www.nbcnews.com/politics/donald-trump/trumps-handling-secret-documents-fbi-mar-a-lago-search-rcna42935'))
 
 """
 NOTE: RDD is structured as follows...

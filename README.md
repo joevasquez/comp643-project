@@ -29,10 +29,16 @@ their audiences around elections broadly.
 REQUIREMENTS
 ------------
 
-This module requires the following modules:
+This program requires the following modules:
 
- * [Views](https://www.drupal.org/project/views)
- * [Panels](https://www.drupal.org/project/panels)
+ * TextBlob
+ * BeautifulSoup
+ * requests
+ * re
+ * spacy
+ * collections
+ * Spacy -> "en_core_web_sm"
+ * pyspark
 
 CONFIGURATION
 -------------
