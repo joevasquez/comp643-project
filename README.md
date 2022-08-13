@@ -1,16 +1,29 @@
-INTRODUCTION TO MY COMP 643 PROJECT
+"Evaluating Bias in News Outlets' Social Media Posts"
+COMP 643: Final Project
 ------------
 
-The Administration Menu module displays the entire administrative menu tree
-(and most local tasks) in a drop-down menu, providing administrators one- or
-two-click access to most pages.  Other modules may also add menu links to the
-menu using hook_admin_menu_output_alter().
+It’s no secret that news outlets leverage social media and content to 
+engage, persuade, and retain to their respective audiences. Arguably, 
+the headlines and descriptive content of a social media post may be more 
+influential than the content of the articles themselves. The results 
+can be seen worldwide; there has been increasing distrust and tensions 
+amongst citizens, polarized elections and the rise of extremist politicians, 
+and a lack of awareness of fact and fiction a la fake news. The purpose of 
+this study is to evaluate the top fifteen media outlets–ranging from Fox 
+News to Politico–and identify how they influence their audience(s) using 
+emotion, tonality, objectivity, context, and/or content in their posts.
 
- * For a full description of the module, visit the project page:
-   https://www.drupal.org/project/admin_menu
+The dataset that I am working with spans from 2012 to 2016 which spans 
+two particularly important events: the 2012 (Obama/Romney) and 2016 
+(Clinton/Trump) elections. I will use these two elections to frame my 
+analysis and identify how the different media outlets leveraged certain 
+keywords, entities, and events/timelines to engage with and influence 
+their audiences around elections broadly.
 
- * To submit bug reports and feature suggestions, or track changes:
-   https://www.drupal.org/project/issues/admin_menu
+
+ * To review the dataset that was used in this study:
+   https://data.world/martinchek/2012-2016-facebook-posts
+
 
 REQUIREMENTS
 ------------
