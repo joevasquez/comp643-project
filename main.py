@@ -29,6 +29,8 @@ files2 = [
 ]
 
 results_array = []
+polarity_array = []
+av_polarity_array = []
 
 def find_entities(string):
     doc = nlp(string)
@@ -36,6 +38,7 @@ def find_entities(string):
     result = filter(lambda x: x[1]=="PERSON", array)
     return list(result)
 
+# Sentiment(polarity, subjectivity)
 def find_sentiment(string):
     testimonial = TextBlob(string)
     return (testimonial.sentiment.polarity, testimonial.sentiment.subjectivity) 
@@ -60,12 +63,27 @@ def main_function(url):
     all_people = values.flatMap(lambda x: ((j[0], 1) for j in x[1][5]))
     people_count = all_people.reduceByKey(lambda a, b: a + b)
     top_people = people_count.top(200, lambda x : x[1])
-    results_array.append((url[0], top_people[:30]))
+    results_array.append((url[0], top_people[:50]))
+
+    polarity_rdd = values.flatMap(lambda x: ((j[0], x[1][6][0]) for j in x[1][5]))
+    polarity_rdd = polarity_rdd.reduceByKey(lambda a, b: a + b)
+    top_polarity = polarity_rdd.top(1000, lambda x : x[1])
+    polarity_array.append((url[0], top_polarity[:50]))
+
+    temp_array = []
+    for i in top_people:
+        for j in top_polarity:
+            if j[0] == i[0]:
+                temp_array.append((i[0], j[1]/i[1]))
+    
+    polarity_array.append((url[0], temp_array))
 
 for i in files2:
     main_function(i)
 
-print(results_array)
+#print(results_array)
+#print(polarity_array)
+print(av_polarity_array)
 
 """
 NOTE: RDD is structured as follows...
@@ -76,4 +94,5 @@ NOTE: RDD is structured as follows...
             Shares, 
             [ER Count Array]))
     ]
+
 """
