@@ -1,6 +1,7 @@
 
 import nltk
 import pyspark
+import re
 
 #Use first time to download key packages
 """nltk.download('punkt')
@@ -33,6 +34,11 @@ print("Rows in the csv: ", datafile.count())
 #Split each line by , to extract field values¶
 values = datafile.map(lambda x: x.split(','))
 columns = values.take(1)
+print("Columns: ", columns)
+
+#Filter RDD where rows contain a NULL value
+values = values.filter(lambda row: 'NULL' not in row)
+print(values.take(1))
 
 #Find the named entities and split into an array
 def get_continuous_chunks(text):
@@ -51,5 +57,10 @@ def get_continuous_chunks(text):
                     continue
     return continuous_chunk
 
-my_sent = "How's the weather in New York and Brooklyn"
-print(get_continuous_chunks(my_sent))
+#Clean up the RDD to have the id, caption, likes, and comments
+values = values.map(lambda x: (x[0].replace('"\ufeff""', '').replace('"""',''), (x[3], x[4], x[8], x[9], x[10])))
+print("Updated RDD ", values.take(2))
+
+#Apply named entity recognition to RDD
+values = values.map(lambda x: (x[0], (x[1][0], x[1][1], x[1][2], x[1][3], x[1][4], get_continuous_chunks(x[1][1]))))
+print("Values with ER: ", values.take(8))
