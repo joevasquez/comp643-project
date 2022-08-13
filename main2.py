@@ -41,6 +41,7 @@ values = values.filter(lambda row: 'NULL' not in row)
 print(values.take(1))
 
 #Find the named entities and split into an array
+#Source: https://stackoverflow.com/questions/31836058/nltk-named-entity-recognition-to-a-python-list
 def get_continuous_chunks(text):
     chunked = ne_chunk(pos_tag(word_tokenize(text)))
     continuous_chunk = []
