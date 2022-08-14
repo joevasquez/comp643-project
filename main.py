@@ -34,8 +34,7 @@ files = [
 ]
 
 files2 = [
-    ("ABCNews", "data/data/abc_news_86680728811.csv"),
-    ("FoxNews", "data/data/fox_news_15704546335.csv")
+    ("ABCNews", "data/data/abc_news_86680728811.csv")
 ]
 
 results_array = []
@@ -50,8 +49,8 @@ def find_entities(string):
 
 # Sentiment(polarity, subjectivity)
 def find_sentiment(string):
-    testimonial = TextBlob(string)
-    return (testimonial.sentiment.polarity, testimonial.sentiment.subjectivity) 
+    blob_text = TextBlob(string)
+    return (blob_text.sentiment.polarity, blob_text.sentiment.subjectivity) 
 
 def main_function(url):
     #Read the data file into an RDD (starting with one for now)
@@ -72,6 +71,23 @@ def main_function(url):
             return ""
         else:
             return url_to_string(link)
+    
+    """ Clean up off incidences to increase accuracy
+    def clean_strings(in_string):
+        replace = [
+            ("Donald Trump’s", "Donald Trump"),
+            ("Donald J. Trump", "Donald Trump"),
+            ("Obama", "Barack Obama"),
+            ("Trump", "Donald Trump"),
+            ("Biden", "Joe Biden"),
+            ("Clinton", "Hillary Clinton")
+        ]          
+
+        for i in replace:
+            if i[0] == in_string:
+                return i[1]
+            else:
+                return i[0]   """
 
     #Apply entity recognition via find_entities(string) function
     values = values.map(lambda x: (x[0], (x[1][0], x[1][1], x[1][2], x[1][3], x[1][4], find_entities(x[1][0]+x[1][1]), find_sentiment(x[1][0]+x[1][1]))))
@@ -88,7 +104,7 @@ def main_function(url):
     # Create a word cloud!
     create_wordcloud(url[0], concat_string)    
 
-    all_people = values.flatMap(lambda x: ((j[0], 1) for j in x[1][5]))
+    all_people = values.flatMap(lambda x: ((j[0].replace("’s", "").replace("J. ", "").replace("'s", ""), 1) for j in x[1][5]))
     people_count = all_people.reduceByKey(lambda a, b: a + b)
     top_people = people_count.top(200, lambda x : x[1])
     results_array.append((url[0], top_people[:50]))
@@ -109,19 +125,21 @@ def main_function(url):
             if j[0] == i[0]:
                 temp_array.append((i[0], i[1], j[1]/i[1]))
     
+    temp_array.sort(key=lambda x: x[1], reverse=True) 
+
     sentiment_array = []
     for i in temp_array:
         sentiment_array.append((i[0], i[2]))    
 
     # Plot as a bar chart
-    print("TEMP ARRAY: ", temp_array)
+    print("SENTIMENT ARRAY: ", sentiment_array)
     name = "Average Sentiment (" + url[0] + ")"
     file = "images/" + url[0] + "sentiment.png"
-    plot_chart(name, file, sentiment_array)   
+    plot_chart(name, file, sentiment_array[:20])   
 
     av_polarity_array.append((url[0], temp_array))
 
-for i in files2:
+for i in files:
     main_function(i)
 
 print(av_polarity_array)
