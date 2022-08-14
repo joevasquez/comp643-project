@@ -1,4 +1,7 @@
+# private class definitions
 from enrich_rdd import url_to_string
+from gen_wordcloud import create_wordcloud
+
 from textblob import TextBlob
 from bs4 import BeautifulSoup
 import requests
@@ -9,24 +12,29 @@ from spacy import displacy
 from collections import Counter
 nlp = spacy.load("en_core_web_sm")
 
+import pandas as pd
+import matplotlib.pyplot as plt
+#%matplotlib inline
+from wordcloud import WordCloud
+
 import pyspark
 sc = pyspark.SparkContext()
 
 #Array of file names
 files = [
-    ("ABC News", "data/data/abc_news_86680728811.csv"),
-    ("Fox News", "data/data/fox_news_15704546335.csv"),
+    ("ABCNews", "data/data/abc_news_86680728811.csv"),
+    ("FoxNews", "data/data/fox_news_15704546335.csv"),
     ("BBC", "data/data/bbc_228735667216.csv"),
-    ("NBC News", "data/data/nbc_news_155869377766434.csv"),
-    ("CBS News", "data/data/cbs_news_131459315949.csv"),
+    ("NBCNews", "data/data/nbc_news_155869377766434.csv"),
+    ("CBSNews", "data/data/cbs_news_131459315949.csv"),
     ("NPR", "data/data/npr_10643211755.csv"),
     ("CNN", "data/data/cnn_5550296508.csv"),
-    ("LA Time", "data/data/the_los_angeles_times_5863113009.csv")
+    ("LATimes", "data/data/the_los_angeles_times_5863113009.csv")
 ]
 
 files2 = [
-    ("ABC News", "data/data/abc_news_86680728811.csv"),
-    ("Fox News", "data/data/fox_news_15704546335.csv")
+    ("ABCNews", "data/data/abc_news_86680728811.csv"),
+    ("FoxNews", "data/data/fox_news_15704546335.csv")
 ]
 
 results_array = []
@@ -57,9 +65,30 @@ def main_function(url):
     #Clean up the RDD to have the id, caption, likes, and comments
     values = values.map(lambda x: (x[0].replace('"\ufeff""', '').replace('"""',''), (x[3], x[4], x[8], x[9], x[10], x[17])))
 
+    #ENRICHMENT
+    def get_article (link):
+        if "com" not in link:
+            return ""
+        else:
+            return url_to_string(link)
+
     #Apply entity recognition via find_entities(string) function
     values = values.map(lambda x: (x[0], (x[1][0], x[1][1], x[1][2], x[1][3], x[1][4], find_entities(x[1][0]+x[1][1]), find_sentiment(x[1][0]+x[1][1]))))
-    print("SENTIMENT ", values.take(5))
+
+    # Build up string of all recognized entities in corpus
+    entity_rdd = values.map(lambda x: x[1][5])
+    entity_array = entity_rdd.collect()
+    
+    concat_string = ""
+    for i in entity_array:
+        print(i)
+        for j in i:
+            concat_string = concat_string + " " + j[0]
+    
+    print("NEW ENTITY: ", concat_string)
+    
+    # Create a word cloud!
+    create_wordcloud(url[0], concat_string)    
 
     all_people = values.flatMap(lambda x: ((j[0], 1) for j in x[1][5]))
     people_count = all_people.reduceByKey(lambda a, b: a + b)
@@ -82,11 +111,9 @@ def main_function(url):
 for i in files2:
     main_function(i)
 
-#print(results_array)
-#print(polarity_array)
 print(av_polarity_array)
 
-print("TEST: ", ny_bb = url_to_string('https://www.nbcnews.com/politics/donald-trump/trumps-handling-secret-documents-fbi-mar-a-lago-search-rcna42935'))
+print("TEST: ", url_to_string('https://www.nbcnews.com/politics/donald-trump/trumps-handling-secret-documents-fbi-mar-a-lago-search-rcna42935'))
 
 """
 NOTE: RDD is structured as follows...
