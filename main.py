@@ -1,6 +1,7 @@
 # private class definitions
 from enrich_rdd import url_to_string
 from gen_wordcloud import create_wordcloud
+from plot_chart import plot_chart
 
 from textblob import TextBlob
 from bs4 import BeautifulSoup
@@ -81,7 +82,6 @@ def main_function(url):
     
     concat_string = ""
     for i in entity_array:
-        print(i)
         for j in i:
             concat_string = concat_string + " " + j[0]
     
@@ -94,6 +94,9 @@ def main_function(url):
     people_count = all_people.reduceByKey(lambda a, b: a + b)
     top_people = people_count.top(200, lambda x : x[1])
     results_array.append((url[0], top_people[:50]))
+
+    print("TOP PEOPLE: ", top_people[:50])
+    plot_chart(url[0], top_people[:50])
 
     polarity_rdd = values.flatMap(lambda x: ((j[0], x[1][6][0]) for j in x[1][5]))
     polarity_rdd = polarity_rdd.reduceByKey(lambda a, b: a + b)
@@ -108,12 +111,12 @@ def main_function(url):
     
     av_polarity_array.append((url[0], temp_array))
 
-for i in files2:
+for i in files:
     main_function(i)
 
 print(av_polarity_array)
 
-print("TEST: ", url_to_string('https://www.nbcnews.com/politics/donald-trump/trumps-handling-secret-documents-fbi-mar-a-lago-search-rcna42935'))
+#print("TEST: ", url_to_string('https://www.nbcnews.com/politics/donald-trump/trumps-handling-secret-documents-fbi-mar-a-lago-search-rcna42935'))
 
 """
 NOTE: RDD is structured as follows...
