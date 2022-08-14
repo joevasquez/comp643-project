@@ -85,8 +85,6 @@ def main_function(url):
         for j in i:
             concat_string = concat_string + " " + j[0]
     
-    print("NEW ENTITY: ", concat_string)
-    
     # Create a word cloud!
     create_wordcloud(url[0], concat_string)    
 
@@ -95,13 +93,15 @@ def main_function(url):
     top_people = people_count.top(200, lambda x : x[1])
     results_array.append((url[0], top_people[:50]))
 
-    print("TOP PEOPLE: ", top_people[:50])
-    plot_chart(url[0], top_people[:50])
+    # Plot as a bar chart
+    name = "Mention Frequency (" + url[0] + ")"
+    file = "images/" + url[0] + "freq.png"    
+    plot_chart(name, file, top_people[:30])
 
     polarity_rdd = values.flatMap(lambda x: ((j[0], x[1][6][0]) for j in x[1][5]))
     polarity_rdd = polarity_rdd.reduceByKey(lambda a, b: a + b)
     top_polarity = polarity_rdd.top(1000, lambda x : x[1])
-    polarity_array.append((url[0], top_polarity[:50]))
+    polarity_array.append((url[0], top_polarity[:50])) 
 
     temp_array = []
     for i in top_people:
@@ -109,9 +109,19 @@ def main_function(url):
             if j[0] == i[0]:
                 temp_array.append((i[0], i[1], j[1]/i[1]))
     
+    sentiment_array = []
+    for i in temp_array:
+        sentiment_array.append((i[0], i[2]))    
+
+    # Plot as a bar chart
+    print("TEMP ARRAY: ", temp_array)
+    name = "Average Sentiment (" + url[0] + ")"
+    file = "images/" + url[0] + "sentiment.png"
+    plot_chart(name, file, sentiment_array)   
+
     av_polarity_array.append((url[0], temp_array))
 
-for i in files:
+for i in files2:
     main_function(i)
 
 print(av_polarity_array)
