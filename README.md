@@ -39,20 +39,13 @@ This program requires the following modules:
  * collections
  * Spacy -> "en_core_web_sm"
  * pyspark
+ * matplotlib
+ * numpy
 
 CONFIGURATION
 -------------
  
- * Configure the user permissions in Administration » People » Permissions:
+ * Ensure all of the correct dependencies (above) are installed
 
-   - Use the administration pages and help (System module)
-
-     The top-level administration categories require this permission to be
-     accessible. The administration menu will be empty unless this permission
-     is granted.
-
-   - Access administration menu
-
-     Users with this permission will see the administration menu at the top of
-     each page.
+ * Run 'python3 main.py' in your command line
 
